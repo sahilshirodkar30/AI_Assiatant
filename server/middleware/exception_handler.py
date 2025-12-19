@@ -2,9 +2,12 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from logger import logger
 
-async def catch_exception_middleware(request:Request,call_next):
+async def catch_exception_middleware(request: Request, call_next):
     try:
         return await call_next(request)
-    except Exception as exc:
+    except Exception:
         logger.exception("UNHANDLED EXCEPTION")
-        return JSONResponse(status_code=500,content={"error":str(exc)})
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
