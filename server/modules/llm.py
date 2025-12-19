@@ -21,9 +21,11 @@ Context:
 Question:
 {question}
 
-Rules:
-- Use only context
-- No medical advice
+Answer Rules:
+- Be concise and factual
+- If answer not found, say:
+  "I'm sorry, but I couldn't find relevant information in the provided documents."
+- Do NOT give medical advice
 """
     )
 
