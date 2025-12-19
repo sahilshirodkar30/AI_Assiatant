@@ -5,40 +5,40 @@ import os
 from dotenv import load_dotenv
 from logger import logger
 
+
 load_dotenv()
 
 groq_api_key = os.getenv("GROQ_API_KEY")
 
 def get_llm_chain(retriever):
+    """
+    Returns optimized RetrievalQA chain
+    """
+
     llm = ChatGroq(
         groq_api_key=groq_api_key,
-        model_name="llama-3.3-70b-versatile",
+        model_name="llama-3.1-8b-instant",  # ✅ lighter model
         temperature=0
     )
 
     prompt = PromptTemplate(
         input_variables=["context", "question"],
         template="""
-You are MediBot, an AI-powered assistant trained to help users understand medical documents and health-related questions.
+You are MediBot, an AI-powered assistant trained to help users understand medical documents.
 
-Your job is to provide clear, accurate, and helpful responses based only on the provided context.
-
----
+Use ONLY the provided context to answer the question.
 
 Context:
 {context}
 
-User Question:
+Question:
 {question}
 
----
-
-Answer:
-- Be factual and concise.
-- If the context does not contain the answer, say:
+Answer Rules:
+- Be concise and factual
+- If answer not found, say:
   "I'm sorry, but I couldn't find relevant information in the provided documents."
-- Do NOT make up facts.
-- Do NOT give medical advice or diagnoses.
+- Do NOT give medical advice
 """
     )
 
