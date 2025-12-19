@@ -6,6 +6,9 @@ from routes.upload_files import router as upload_files_router
 
 app = FastAPI(title="Medical Assistant API",description="Medical Assistant Chatbot")
 
+@app.on_event("startup")
+async def startup():
+    logger.info("🚀 Medical Assistant API started")
 # cross-origin resource sharing setup
 app.add_middleware(
     CORSMiddleware,
@@ -17,5 +20,10 @@ app.add_middleware(
 
 app.middleware("http")(catch_exception_middleware)
 
-app.include_router(ask_questions_router)
-app.include_router(upload_files_router)
+
+app.include_router(upload_files_router, prefix="/files")
+app.include_router(ask_questions_router, prefix="/ask")
+
+@app.get("/")
+def health():
+    return {"status": "ok"}
