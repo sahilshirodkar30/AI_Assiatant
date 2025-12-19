@@ -3,13 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from middleware.exception_handler import catch_exception_middleware
 from routes.ask_questions import router as ask_questions_router
 from routes.upload_files import router as upload_files_router
+from logger import logger   # ✅ FIX 1: import logger
 
-app = FastAPI(title="Medical Assistant API",description="Medical Assistant Chatbot")
+app = FastAPI(
+    title="Medical Assistant API",
+    description="Medical Assistant Chatbot"
+)
 
-@app.on_event("startup")
-async def startup():
-    logger.info("🚀 Medical Assistant API started")
-# cross-origin resource sharing setup
+# ✅ Log safely (no startup hook needed)
+logger.info("🚀 Medical Assistant API initialized")
+
+# -----------------------------
+# CORS
+# -----------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,12 +24,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# -----------------------------
+# Global Exception Middleware
+# -----------------------------
 app.middleware("http")(catch_exception_middleware)
 
-
+# -----------------------------
+# Routers
+# -----------------------------
 app.include_router(upload_files_router, prefix="/files")
 app.include_router(ask_questions_router, prefix="/ask")
 
+# -----------------------------
+# Health Check (IMPORTANT for Render)
+# -----------------------------
 @app.get("/")
 def health():
     return {"status": "ok"}
