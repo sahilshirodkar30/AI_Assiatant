@@ -3,70 +3,76 @@ import time
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
-
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
+from logger import logger
 from modules.embedding_model import embedding_model
 
-
-# ────────────────────────────────
-# ENV SETUP
-# ────────────────────────────────
+# -------------------------------------------------
+# ENV
+# -------------------------------------------------
 load_dotenv()
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENV = "us-east-1"
-PINECONE_INDEX_NAME = "medical-index"
+PINECONE_ENV = os.getenv("PINECONE_ENV", "us-east-1")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "medical-index")
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))  # MiniLM default
 
 UPLOAD_DIR = "./uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ────────────────────────────────
-# PINECONE INIT (SAFE)
-# ────────────────────────────────
+# -------------------------------------------------
+# Pinecone (lazy init)
+# -------------------------------------------------
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
-spec = ServerlessSpec(cloud="aws", region=PINECONE_ENV)
+def get_or_create_index():
+    existing = [i["name"] for i in pc.list_indexes()]
 
-existing_indexes = [i["name"] for i in pc.list_indexes()]
+    if PINECONE_INDEX_NAME not in existing:
+        logger.info("Creating Pinecone index...")
+        pc.create_index(
+            name=PINECONE_INDEX_NAME,
+            dimension=EMBEDDING_DIM,
+            metric="cosine",
+            spec=ServerlessSpec(
+                cloud="aws",
+                region=PINECONE_ENV
+            ),
+        )
 
-if PINECONE_INDEX_NAME not in existing_indexes:
-    pc.create_index(
-        name=PINECONE_INDEX_NAME,
-        dimension=768,
-        metric="cosine",
-        spec=spec,
-    )
+        while not pc.describe_index(PINECONE_INDEX_NAME).status.ready:
+            time.sleep(1)
 
-    while not pc.describe_index(PINECONE_INDEX_NAME).status.ready:
-        time.sleep(1)
+        logger.info("Pinecone index ready")
 
-index = pc.Index(PINECONE_INDEX_NAME)
+    return pc.Index(PINECONE_INDEX_NAME)
 
-# ────────────────────────────────
-# UTILITY: BATCHING
-# ────────────────────────────────
+# -------------------------------------------------
+# Utility
+# -------------------------------------------------
 def batch_data(data, size=32):
     for i in range(0, len(data), size):
         yield data[i:i + size]
 
-# ────────────────────────────────
-# MAIN VECTORSTORE LOADER
-# ────────────────────────────────
+# -------------------------------------------------
+# Main loader
+# -------------------------------------------------
 def load_vectorstore(uploaded_files):
     """
     Loads PDFs, splits text, embeds in batches,
     and uploads vectors to Pinecone safely.
     """
 
-    model = embedding_model  # 🔒 reuse loaded model
+    index = get_or_create_index()
+    model = embedding_model
 
     for file in uploaded_files:
         save_path = Path(UPLOAD_DIR) / file.filename
 
-        # ✅ STREAM FILE (no RAM spike)
+        logger.info(f"Saving {file.filename}")
+
         with open(save_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
@@ -85,9 +91,8 @@ def load_vectorstore(uploaded_files):
 
         vectors = []
 
-        print(f"🔍 Embedding {len(texts)} chunks from {file.filename}")
+        logger.info(f"Embedding {len(texts)} chunks from {file.filename}")
 
-        # ✅ EMBED IN SMALL BATCHES
         for text_batch, id_batch, meta_batch in zip(
             batch_data(texts),
             batch_data(ids),
@@ -107,7 +112,7 @@ def load_vectorstore(uploaded_files):
                     )
                 )
 
-        print("📤 Uploading vectors to Pinecone...")
+        logger.info("Uploading vectors to Pinecone")
         index.upsert(vectors=vectors)
 
-        print(f"✅ Upload complete for {file.filename}")
+        logger.info(f"Upload complete for {file.filename}")
