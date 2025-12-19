@@ -8,7 +8,8 @@ from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from embedding_model import embedding_model
+from modules.embedding_model import embedding_model
+
 
 # ────────────────────────────────
 # ENV SETUP
