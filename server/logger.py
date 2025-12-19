@@ -46,9 +46,3 @@ logger = setup_logger()
 
 
 #logger = setup_loggger()
-logger.info("RAG process started")
-logger.debug("Debug message")
-logger.warning("Warning message")
-logger.error("Error message")
-logger.critical("Critical message")
-logger.info("RAG process completed")
